@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Religious Test</title>
+<title>Тест по религиоведению</title>
 
 <style>
+*{box-sizing:border-box}
 
 body{
   margin:0;
-  font-family:Arial;
+  font-family:Arial, sans-serif;
   background:#0f172a;
   color:white;
 }
 
 .container{
-  max-width:900px;
+  max-width:1200px;
   margin:auto;
   padding:20px;
 }
@@ -23,51 +24,94 @@ body{
 .card{
   background:#1e293b;
   padding:25px;
-  border-radius:20px;
+  border-radius:18px;
   margin-top:20px;
 }
 
-button{
+.hidden{display:none}
+
+input{
   width:100%;
   padding:15px;
+  border-radius:10px;
+  border:none;
+  font-size:18px;
   margin-top:10px;
+}
+
+button{
+  padding:14px;
   border:none;
   border-radius:10px;
-  background:#334155;
+  background:#2563eb;
   color:white;
   cursor:pointer;
   font-size:16px;
 }
 
-button:hover{
-  background:#475569;
+button:hover{background:#1d4ed8}
+
+.layout{
+  display:grid;
+  grid-template-columns:1fr 260px;
+  gap:20px;
 }
 
-.correct{
-  background:green !important;
+.answer{
+  width:100%;
+  margin-top:12px;
+  background:#334155;
+  text-align:left;
 }
 
-.wrong{
-  background:red !important;
-}
-
-.hidden{
-  display:none;
-}
+.correct{background:#16a34a !important}
+.wrong{background:#dc2626 !important}
 
 .top{
   display:flex;
   justify-content:space-between;
+  gap:10px;
   margin-bottom:20px;
 }
+
+.nav-buttons{
+  display:flex;
+  gap:10px;
+  margin-top:20px;
+}
+
+.nav-buttons button{
+  width:100%;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+}
+
+.num{
+  background:#334155;
+  padding:12px;
+  border-radius:8px;
+  text-align:center;
+  cursor:pointer;
+}
+
+.num.active{background:#2563eb}
+.num.done{background:#16a34a}
+.num.wrongnum{background:#dc2626}
 
 .result-item{
   background:#111827;
   padding:15px;
-  border-radius:10px;
-  margin-top:10px;
+  border-radius:12px;
+  margin-top:12px;
 }
 
+@media(max-width:800px){
+  .layout{grid-template-columns:1fr}
+}
 </style>
 </head>
 
@@ -77,255 +121,254 @@ button:hover{
 
 <h1>Тест по религиоведению</h1>
 
-<div class="card" id="startBox">
-
-<h2>Выберите количество вопросов</h2>
-
-<button onclick="startQuiz(25)">25 вопросов</button>
-<button onclick="startQuiz(50)">50 вопросов</button>
-<button onclick="startQuiz(100)">100 вопросов</button>
-<button onclick="startQuiz(9999)">Все вопросы</button>
-
+<div class="card" id="loginBox">
+  <h2>Введите имя</h2>
+  <input id="studentName" placeholder="Ваше имя">
+  <br><br>
+  <button onclick="startQuiz()">Начать тест — 25 вопросов</button>
 </div>
 
-<div class="card hidden" id="quizBox">
+<div id="quizBox" class="hidden layout">
 
-<div class="top">
-<div id="progress"></div>
-<div id="score"></div>
-</div>
+  <div class="card">
+    <div class="top">
+      <div id="nameBox"></div>
+      <div id="timer">30:00</div>
+      <div id="progress"></div>
+    </div>
 
-<h2 id="question"></h2>
+    <h2 id="question"></h2>
+    <div id="answers"></div>
 
-<div id="answers"></div>
+    <div class="nav-buttons">
+      <button onclick="prevQuestion()">Назад</button>
+      <button onclick="nextQuestion()">Следующий</button>
+    </div>
+  </div>
 
-<button onclick="nextQuestion()">
-Следующий
-</button>
+  <div class="card">
+    <h3>Вопросы</h3>
+    <div class="grid" id="questionGrid"></div>
+  </div>
 
 </div>
 
 <div class="card hidden" id="resultBox">
+  <h2>Результат</h2>
+  <h3 id="finalResult"></h3>
 
-<h2>Результат</h2>
+  <h3>Правильные ответы</h3>
+  <div id="correctList"></div>
 
-<div id="finalScore"></div>
+  <h3>Неправильные ответы</h3>
+  <div id="wrongList"></div>
 
-<h3>Ошибки:</h3>
-
-<div id="mistakes"></div>
-
+  <br>
+  <button onclick="location.reload()">Пройти заново</button>
 </div>
 
 </div>
 
 <script>
-
 let allQuestions = [];
 let questions = [];
-
 let current = 0;
-let score = 0;
-let answered = false;
-
-let mistakes = [];
+let answers = [];
+let timer;
+let timeLeft = 30 * 60;
 
 fetch("questions.txt")
-.then(r=>r.text())
-.then(text=>{
+.then(r => r.text())
+.then(text => {
+  const blocks = text.split("+++++");
 
-const blocks = text.split("+++++");
+  blocks.forEach(block => {
+    let parts = block.split("=====")
+      .map(x => x.trim())
+      .filter(x => x.length > 0);
 
-blocks.forEach(block=>{
-
-let parts = block.split("=====")
-.map(x=>x.trim())
-.filter(x=>x);
-
-if(parts.length >= 5){
-
-allQuestions.push({
-
-question: parts[0],
-
-answers:[
-parts[1],
-parts[2],
-parts[3],
-parts[4]
-],
-
-correct:0
-
+    if(parts.length >= 5){
+      allQuestions.push({
+        question: parts[0],
+        answers: [parts[1], parts[2], parts[3], parts[4]],
+        correct: parts[1]
+      });
+    }
+  });
 });
 
+function startQuiz(){
+  let name = document.getElementById("studentName").value.trim();
+
+  if(!name){
+    alert("Введите имя");
+    return;
+  }
+
+  questions = [...allQuestions]
+    .sort(() => Math.random() - 0.5)
+    .slice(0,25);
+
+  answers = Array(25).fill(null);
+
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("quizBox").classList.remove("hidden");
+  document.getElementById("nameBox").innerText = "Имя: " + name;
+
+  createGrid();
+  showQuestion();
+  startTimer();
 }
 
-});
+function startTimer(){
+  timer = setInterval(() => {
+    timeLeft--;
 
-});
+    let m = Math.floor(timeLeft / 60);
+    let s = timeLeft % 60;
 
-function startQuiz(count){
+    document.getElementById("timer").innerText =
+      String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
 
-questions =
-[...allQuestions]
-.sort(()=>Math.random()-0.5)
-.slice(0,count);
+    if(timeLeft <= 0){
+      clearInterval(timer);
+      finishQuiz();
+    }
+  },1000);
+}
 
-current = 0;
-score = 0;
-mistakes = [];
+function createGrid(){
+  let html = "";
 
-document.getElementById("startBox")
-.classList.add("hidden");
+  for(let i=0;i<25;i++){
+    html += `<div class="num" id="num${i}" onclick="goToQuestion(${i})">${i+1}</div>`;
+  }
 
-document.getElementById("quizBox")
-.classList.remove("hidden");
-
-showQuestion();
-
+  document.getElementById("questionGrid").innerHTML = html;
 }
 
 function showQuestion(){
+  let q = questions[current];
 
-answered = false;
+  document.getElementById("progress").innerText =
+    `Вопрос ${current + 1}/25`;
 
-let q = questions[current];
+  document.getElementById("question").innerText = q.question;
 
-document.getElementById("progress").innerText =
-`Вопрос ${current+1}/${questions.length}`;
+  let mixed = q.answers
+    .map(a => ({text:a, correct:a === q.correct}))
+    .sort(() => Math.random() - 0.5);
 
-document.getElementById("score").innerText =
-`Правильно: ${score}`;
+  let html = "";
 
-document.getElementById("question").innerText =
-q.question;
+  mixed.forEach(ans => {
+    let selected = answers[current] === ans.text;
+    let cls = "answer";
 
-let mixed =
-q.answers.map((a,index)=>({
+    if(selected){
+      cls += ans.correct ? " correct" : " wrong";
+    }
 
-text:a,
-correct:index===0
+    html += `
+      <button class="${cls}" onclick="chooseAnswer('${escapeText(ans.text)}')">
+        ${ans.text}
+      </button>
+    `;
+  });
 
-})).sort(()=>Math.random()-0.5);
-
-let html = "";
-
-mixed.forEach(ans=>{
-
-html += `
-<button onclick="checkAnswer(this,'${ans.text}',${ans.correct})">
-${ans.text}
-</button>
-`;
-
-});
-
-document.getElementById("answers").innerHTML =
-html;
-
+  document.getElementById("answers").innerHTML = html;
+  updateGrid();
 }
 
-function checkAnswer(btn,text,isCorrect){
-
-if(answered) return;
-
-answered = true;
-
-if(isCorrect){
-
-btn.classList.add("correct");
-
-score++;
-
-}else{
-
-btn.classList.add("wrong");
-
-document.querySelectorAll("#answers button")
-.forEach(b=>{
-
-if(b.innerText === questions[current].answers[0]){
-
-b.classList.add("correct");
-
+function escapeText(text){
+  return text.replace(/'/g,"\\'");
 }
 
-});
-
-mistakes.push({
-
-question:questions[current].question,
-
-your:text,
-
-correct:questions[current].answers[0]
-
-});
-
-}
-
-document.getElementById("score").innerText =
-`Правильно: ${score}`;
-
+function chooseAnswer(answer){
+  answers[current] = answer;
+  showQuestion();
 }
 
 function nextQuestion(){
-
-current++;
-
-if(current >= questions.length){
-
-finishQuiz();
-
-return;
-
+  if(current < 24){
+    current++;
+    showQuestion();
+  }else{
+    finishQuiz();
+  }
 }
 
-showQuestion();
+function prevQuestion(){
+  if(current > 0){
+    current--;
+    showQuestion();
+  }
+}
 
+function goToQuestion(index){
+  current = index;
+  showQuestion();
+}
+
+function updateGrid(){
+  for(let i=0;i<25;i++){
+    let el = document.getElementById("num"+i);
+    el.className = "num";
+
+    if(i === current) el.classList.add("active");
+
+    if(answers[i]){
+      if(answers[i] === questions[i].correct){
+        el.classList.add("done");
+      }else{
+        el.classList.add("wrongnum");
+      }
+    }
+  }
 }
 
 function finishQuiz(){
+  clearInterval(timer);
 
-document.getElementById("quizBox")
-.classList.add("hidden");
+  document.getElementById("quizBox").classList.add("hidden");
+  document.getElementById("resultBox").classList.remove("hidden");
 
-document.getElementById("resultBox")
-.classList.remove("hidden");
+  let correctCount = 0;
+  let correctHTML = "";
+  let wrongHTML = "";
 
-document.getElementById("finalScore").innerHTML =
-`<h1>${score} / ${questions.length}</h1>`;
+  questions.forEach((q,i) => {
+    let user = answers[i];
 
-let html = "";
+    if(user === q.correct){
+      correctCount++;
 
-mistakes.forEach(m=>{
+      correctHTML += `
+        <div class="result-item">
+          <b>${i+1}. ${q.question}</b>
+          <p style="color:lightgreen">Правильный ответ: ${q.correct}</p>
+        </div>
+      `;
+    }else{
+      wrongHTML += `
+        <div class="result-item">
+          <b>${i+1}. ${q.question}</b>
+          <p style="color:#f87171">Ваш ответ: ${user ? user : "Не отвечено"}</p>
+          <p style="color:lightgreen">Правильный ответ: ${q.correct}</p>
+        </div>
+      `;
+    }
+  });
 
-html += `
+  document.getElementById("finalResult").innerText =
+    `Вы набрали ${correctCount} из 25`;
 
-<div class="result-item">
+  document.getElementById("correctList").innerHTML =
+    correctHTML || "<p>Нет правильных ответов</p>";
 
-<p><b>Вопрос:</b> ${m.question}</p>
-
-<p style="color:red">
-<b>Ваш ответ:</b> ${m.your}
-</p>
-
-<p style="color:lightgreen">
-<b>Правильный:</b> ${m.correct}
-</p>
-
-</div>
-
-`;
-
-});
-
-document.getElementById("mistakes").innerHTML =
-html;
-
+  document.getElementById("wrongList").innerHTML =
+    wrongHTML || "<p>Ошибок нет 🎉</p>";
 }
-
 </script>
 
 </body>
